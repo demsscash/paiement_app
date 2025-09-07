@@ -1,45 +1,43 @@
-// app/payment.tsx
-import React, { useEffect, useState } from 'react';
-import { Keyboard, View, Text } from 'react-native';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+// app/payment.tsx - Avec bouton retour vers PAYMENT_METHOD
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, Keyboard } from 'react-native';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import ScreenLayout from '../components/layout/ScreenLayout';
-import CodeInput from '../components/ui/CodeInput';
-import Button from '../components/ui/Button';
-import ErrorModal from '../components/ui/ErrorModal';
-import LoadingIndicator from '../components/ui/LoadingIndicator';
 import { Heading, Paragraph, SubHeading } from '../components/ui/Typography';
+import { Button } from '../components/ui/Button';
+import CodeInput from '../components/ui/CodeInput';
+import LoadingIndicator from '../components/ui/LoadingIndicator';
+import ErrorModal from '../components/ui/ErrorModal';
 import { ROUTES } from '../constants/routes';
-import { DEFAULT_CODE_LENGTH } from '../constants/mockData';
-import useCodeInput from '../hooks/useCodeInput';
 import { ApiService } from '../services/api';
+import { DEFAULT_CODE_LENGTH } from '../constants/mockData';
 
 export default function PaymentScreen() {
     const router = useRouter();
-    const { error } = useLocalSearchParams();
-    const { code, isComplete, handleCodeChange, getFullCode } = useCodeInput(DEFAULT_CODE_LENGTH);
+    const params = useLocalSearchParams();
+    const { error } = params;
+
+    const [code, setCode] = useState(['', '', '', '', '', '']);
     const [loading, setLoading] = useState(false);
-
-    // Debug state
-    const [renderCount, setRenderCount] = useState(0);
-
-    // Update render count to track re-renders
-    useEffect(() => {
-        setRenderCount(prev => prev + 1);
-        console.log("Payment Screen rendered:", renderCount + 1, "times");
-        console.log("Current code state:", code);
-        console.log("Is complete:", isComplete);
-    }, [code, isComplete]);
-
-    // États pour le modal d'erreur
     const [errorModalVisible, setErrorModalVisible] = useState(false);
-    const [errorMessage, setErrorMessage] = useState('');
     const [errorTitle, setErrorTitle] = useState('');
+    const [errorMessage, setErrorMessage] = useState('');
 
-    // Gérer les erreurs de validation redirigées
+    const renderCount = useRef(0);
+    renderCount.current += 1;
+
+    const getFullCode = () => code.join('');
+    const isComplete = getFullCode().length === DEFAULT_CODE_LENGTH;
+
+    const handleCodeChange = (newCode: string[]) => {
+        setCode(newCode);
+    };
+
+    // Gestion des erreurs passées en paramètres
     useEffect(() => {
         if (error === 'invalidCode') {
-            setErrorTitle('Code facture invalide');
-            setErrorMessage('Le code que vous avez saisi ne correspond à aucune facture dans notre système.');
+            setErrorTitle('Code invalide');
+            setErrorMessage('Le code que vous avez saisi ne correspond à aucune facture dans notre système. Veuillez réessayer.');
             setErrorModalVisible(true);
         } else if (error === 'serverError') {
             setErrorTitle('Erreur de serveur');
@@ -47,6 +45,11 @@ export default function PaymentScreen() {
             setErrorModalVisible(true);
         }
     }, [error]);
+
+    // Bouton retour vers le choix de méthode PAYMENT
+    const handleBack = () => {
+        router.push(ROUTES.PAYMENT_METHOD);
+    };
 
     const handleValidation = async () => {
         const fullCode = getFullCode();
@@ -103,7 +106,7 @@ export default function PaymentScreen() {
             <View className="absolute bottom-2 left-2 bg-white p-2 rounded-lg opacity-70">
                 <Text className="text-xs">Complete: {isComplete ? 'Yes' : 'No'}</Text>
                 <Text className="text-xs">Code: {code.join('')}</Text>
-                <Text className="text-xs">Renders: {renderCount}</Text>
+                <Text className="text-xs">Renders: {renderCount.current}</Text>
             </View>
         );
     };
@@ -118,32 +121,47 @@ export default function PaymentScreen() {
 
     return (
         <ScreenLayout>
-            <Heading className="mb-4 text-center">
-                Régler votre facture
-            </Heading>
+            <View className="w-full max-w-2xl mx-auto px-4 flex-1 justify-center">
+                {/* Bouton retour */}
+                <View className="w-full mb-4">
+                    <Button
+                        title="← Retour"
+                        onPress={handleBack}
+                        variant="secondary"
+                        className="self-start px-4 py-3"
+                    />
+                </View>
 
-            <Paragraph className="mb-8 text-center px-5">
-                Pour toute autre information adressez vous au secrétariat
-            </Paragraph>
+                {/* Contenu principal centré */}
+                <View className="flex-1 justify-center items-center">
+                    <Heading className="mb-3 text-center text-black text-xl">
+                        Régler votre facture
+                    </Heading>
 
-            <SubHeading className="mb-6">
-                Veuillez entrer le code facture
-            </SubHeading>
+                    <Paragraph className="mb-6 text-center px-4 text-sm">
+                        Pour toute autre information adressez vous au secrétariat
+                    </Paragraph>
 
-            <CodeInput
-                codeLength={DEFAULT_CODE_LENGTH}
-                value={code}
-                onChange={handleCodeChange}
-                containerClassName="mb-8"
-            />
+                    <SubHeading className="mb-4 text-base">
+                        Veuillez entrer le code facture
+                    </SubHeading>
 
-            <Button
-                title="Valider"
-                onPress={handleValidation}
-                variant="primary"
-                disabled={!isComplete}
-                className={`w-64 h-14 justify-center items-center`}
-            />
+                    <CodeInput
+                        codeLength={DEFAULT_CODE_LENGTH}
+                        value={code}
+                        onChange={handleCodeChange}
+                        containerClassName="mb-8"
+                    />
+
+                    <Button
+                        title="Valider"
+                        onPress={handleValidation}
+                        variant="primary"
+                        disabled={!isComplete}
+                        className="w-64 h-14 justify-center items-center"
+                    />
+                </View>
+            </View>
 
             {/* Modal d'erreur */}
             <ErrorModal

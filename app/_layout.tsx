@@ -24,7 +24,7 @@ export default function RootLayout() {
             timeoutDuration={30}
             warningThreshold={5}
             initialDelay={5}
-            disabledRoutes={[ROUTES.HOME, '/kiosk-auth']}
+            disabledRoutes={[ROUTES.HOME, ROUTES.PAYMENT_METHOD, '/kiosk-auth']}
           />
         </View>
       </AuthWrapper>

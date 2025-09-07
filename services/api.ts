@@ -737,7 +737,111 @@ export const ApiService = {
             console.error('Erreur lors du téléchargement de l\'ordonnance:', error);
             throw error;
         }
-    }
+    },
+    async searchPaymentByPersonalInfo(searchData: PersonalSearchData): Promise<{ validationCode: string } | null> {
+        console.log("Recherche de paiement par informations personnelles:", searchData);
+
+        try {
+            const url = `${API_CONFIG.baseUrl}${API_CONFIG.endpoints.PERSONAL_SEARCH}`;
+            console.log(`Appel API recherche personnelle paiement: ${url}`);
+
+            const response = await fetchWithTimeout(url, {
+                method: 'POST',
+                headers: API_CONFIG.headers,
+                body: JSON.stringify({
+                    ...searchData,
+                    type: 'payment'  // Spécifier que c'est pour un paiement
+                }),
+            });
+
+            if (response.status === 404) {
+                console.log("Aucun paiement trouvé (404)");
+                return null;
+            }
+
+            const paymentData: ApiAppointmentResponse = await response.json();
+            console.log("Réponse de l'API recherche personnelle paiement:", paymentData);
+
+            if (!paymentData || !paymentData.validationCode) {
+                console.log("Aucun code de validation reçu de l'API pour le paiement");
+                return null;
+            }
+
+            // Retourner uniquement le code de validation pour continuer avec le flux normal de paiement
+            return {
+                validationCode: paymentData.validationCode
+            };
+
+        } catch (error) {
+            console.error('Erreur lors de la recherche de paiement par informations personnelles:', error);
+
+            // Pas de fallback pour la recherche personnelle car les données simulées 
+            // ne correspondent pas à des vraies recherches par nom
+            throw error;
+        }
+    },
+
+    /**
+     * NOUVELLE MÉTHODE: Vérifie si un code de paiement est valide
+     */
+    async verifyPaymentCode(code: string): Promise<boolean> {
+        console.log("Vérification du code de paiement:", code);
+
+        try {
+            // Essayer d'abord l'API
+            try {
+                const url = `${API_CONFIG.baseUrl}${API_CONFIG.endpoints.VALIDATE_CODE}`;
+                console.log(`Appel API validation paiement: ${url}`);
+
+                const response = await fetchWithTimeout(url, {
+                    method: 'POST',
+                    headers: API_CONFIG.headers,
+                    body: JSON.stringify({
+                        code,
+                        type: 'payment'  // Spécifier que c'est pour un paiement
+                    }),
+                });
+
+                console.log("Réponse du serveur paiement:", response.status);
+
+                if (response.status === 404) {
+                    console.log("Code de paiement invalide (404)");
+                    return false;
+                }
+
+                let data;
+                try {
+                    data = await response.json();
+                    console.log("Données reçues paiement:", data);
+                } catch (e) {
+                    console.log("Pas de données JSON, utilisation du statut pour paiement");
+                    return response.status === 200;
+                }
+
+                const isValid =
+                    (data && data.success === true) ||
+                    (data && data.status === "success") ||
+                    (data && (data.appointment || data.payment)) ||
+                    (response.status === 200 && data);
+
+                console.log("Code de paiement valide?", isValid);
+                return isValid;
+            } catch (apiError) {
+                console.warn('Erreur API de validation paiement, utilisation des données locales:', apiError);
+                // En cas d'erreur d'API, utiliser les données locales
+                const isValid = VALID_CODES.includes(code);
+                console.log("Validation locale paiement:", isValid);
+                return isValid;
+            }
+        } catch (error) {
+            console.error('Erreur globale lors de la vérification du paiement:', error);
+            // En cas d'erreur générale, vérifier si c'est un code de test valide
+            const isValid = VALID_CODES.includes(code);
+            console.log("Validation de secours paiement:", isValid);
+            return isValid;
+        }
+    },
 };
+
 
 export default ApiService;

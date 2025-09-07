@@ -128,7 +128,7 @@ export default function CodeValidationScreen() {
                 {/* Contenu principal centré */}
                 <View className="flex-1 justify-center items-center">
                     {/* Titre */}
-                    <Heading className="mb-3 text-center text-xl">
+                    <Heading className="mb-3 text-center text-black text-xl">
                         Validation du rendez-vous
                     </Heading>
 

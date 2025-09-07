@@ -1,13 +1,12 @@
-// app/personal-search.tsx
+// app/personal-search.tsx - Version corrigée pour Payment App
 import React, { useState } from 'react';
-import { View, Text, TextInput, Alert } from 'react-native';
+import { View, Text, TextInput, TouchableWithoutFeedback, Keyboard } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
 import ScreenLayout from '../components/layout/ScreenLayout';
-import Button from '../components/ui/Button';
+import { Heading, Paragraph, SubHeading } from '../components/ui/Typography';
+import { Button } from '../components/ui/Button';
 import LoadingIndicator from '../components/ui/LoadingIndicator';
 import ErrorModal from '../components/ui/ErrorModal';
-import { Heading, SubHeading, Paragraph } from '../components/ui/Typography';
 import { ROUTES } from '../constants/routes';
 import { ApiService } from '../services/api';
 import { useActivity } from '../components/layout/ActivityWrapper';
@@ -16,68 +15,58 @@ export default function PersonalSearchScreen() {
     const router = useRouter();
     const { triggerActivity } = useActivity();
 
-    // États du formulaire
     const [nom, setNom] = useState('');
     const [prenom, setPrenom] = useState('');
     const [dateNaissance, setDateNaissance] = useState('');
     const [loading, setLoading] = useState(false);
-
-    // États pour le modal d'erreur
     const [errorModalVisible, setErrorModalVisible] = useState(false);
-    const [errorMessage, setErrorMessage] = useState('');
     const [errorTitle, setErrorTitle] = useState('');
+    const [errorMessage, setErrorMessage] = useState('');
+
+    // Validation de la date
+    const isValidDate = (dateStr: string): boolean => {
+        if (!dateStr || dateStr.length !== 10) return false;
+
+        const parts = dateStr.split('/');
+        if (parts.length !== 3) return false;
+
+        const day = parseInt(parts[0], 10);
+        const month = parseInt(parts[1], 10);
+        const year = parseInt(parts[2], 10);
+
+        if (day < 1 || day > 31 || month < 1 || month > 12 || year < 1900 || year > new Date().getFullYear()) {
+            return false;
+        }
+
+        const date = new Date(year, month - 1, day);
+        return date.getDate() === day && date.getMonth() === month - 1 && date.getFullYear() === year;
+    };
 
     // Validation du formulaire
-    const isFormValid = () => {
+    const isFormValid = (): boolean => {
         return nom.trim().length >= 2 &&
             prenom.trim().length >= 2 &&
-            dateNaissance.length === 10 &&
-            /^\d{2}\/\d{2}\/\d{4}$/.test(dateNaissance) &&
             isValidDate(dateNaissance);
     };
 
-    // Fonction pour valider si la date est réelle
-    const isValidDate = (dateStr: string) => {
-        if (!/^\d{2}\/\d{2}\/\d{4}$/.test(dateStr)) return false;
-
-        const [day, month, year] = dateStr.split('/').map(Number);
-
-        // Vérifications basiques
-        if (month < 1 || month > 12) return false;
-        if (day < 1 || day > 31) return false;
-        if (year < 1900 || year > new Date().getFullYear()) return false;
-
-        // Vérifier le nombre de jours dans le mois
-        const daysInMonth = new Date(year, month, 0).getDate();
-        return day <= daysInMonth;
-    };
-
-    // Formatage de la date pendant la saisie
+    // Formatage de la date avec validation
     const handleDateChange = (text: string) => {
-        // Si l'utilisateur efface, on garde tel quel
-        if (text.length < dateNaissance.length) {
-            setDateNaissance(text);
+        if (text.length === 0) {
+            setDateNaissance('');
             triggerActivity();
             return;
         }
 
-        // Supprimer tous les caractères non numériques
         const numbers = text.replace(/\D/g, '');
-
-        // Limiter à 8 chiffres maximum (DDMMYYYY)
         const limitedNumbers = numbers.slice(0, 8);
 
-        // Formater en DD/MM/YYYY
         let formatted = '';
 
         if (limitedNumbers.length <= 2) {
-            // Jour seulement: "03"
             formatted = limitedNumbers;
         } else if (limitedNumbers.length <= 4) {
-            // Jour + Mois: "03/03"
             formatted = limitedNumbers.slice(0, 2) + '/' + limitedNumbers.slice(2);
         } else {
-            // Jour + Mois + Année: "03/03/1990"
             formatted = limitedNumbers.slice(0, 2) + '/' +
                 limitedNumbers.slice(2, 4) + '/' +
                 limitedNumbers.slice(4);
@@ -87,7 +76,7 @@ export default function PersonalSearchScreen() {
         triggerActivity();
     };
 
-    // Recherche du patient
+    // Recherche du patient pour le paiement
     const handleSearch = async () => {
         if (!isFormValid()) {
             setErrorTitle('Informations incomplètes');
@@ -109,31 +98,43 @@ export default function PersonalSearchScreen() {
                 date_naissance: isoDate
             };
 
-            console.log('Recherche avec les données:', searchData);
+            console.log('Recherche paiement avec les données:', searchData);
 
-            const appointmentData = await ApiService.searchAppointmentByPersonalInfo(searchData);
+            // Rechercher les informations de paiement
+            const paymentData = await ApiService.searchPaymentByPersonalInfo(searchData);
 
-            if (appointmentData && appointmentData.validationCode) {
-                console.log('Rendez-vous trouvé avec code de validation:', appointmentData.validationCode);
+            if (paymentData && paymentData.validationCode) {
+                console.log('Paiement trouvé avec code de validation:', paymentData.validationCode);
 
-                // Récupérer le code de validation et continuer avec le flux normal
-                const validationCode = appointmentData.validationCode;
+                const validationCode = paymentData.validationCode;
 
-                // Naviguer vers l'écran de carte Vitale avec le code de validation récupéré
-                // On utilise le flux normal (comme si on avait saisi le code)
-                router.push({
-                    pathname: ROUTES.CHECKIN_CARTE_VITALE,
-                    params: {
-                        code: validationCode
-                    }
-                });
+                // Récupérer les informations complètes de paiement pour avoir l'appointmentId
+                const paymentInfo = await ApiService.getPaymentByCode(validationCode);
+
+                if (paymentInfo && paymentInfo.appointmentId) {
+                    console.log('Informations de paiement complètes récupérées, appointmentId:', paymentInfo.appointmentId);
+
+                    // Naviguer directement vers l'écran de carte vitale (étape suivante après la validation du code)
+                    router.push({
+                        pathname: ROUTES.CARTE_VITALE,
+                        params: {
+                            code: validationCode,
+                            appointmentId: paymentInfo.appointmentId.toString()
+                        }
+                    });
+                } else {
+                    console.error('Erreur lors de la récupération des informations de paiement');
+                    setErrorTitle('Erreur de paiement');
+                    setErrorMessage('Impossible de récupérer les informations de paiement. Veuillez réessayer ou contacter le secrétariat.');
+                    setErrorModalVisible(true);
+                }
             } else {
-                setErrorTitle('Aucun rendez-vous trouvé');
-                setErrorMessage('Aucun rendez-vous n\'a été trouvé avec ces informations. Vérifiez vos données ou contactez le secrétariat.');
+                setErrorTitle('Aucun paiement trouvé');
+                setErrorMessage('Aucun paiement en attente n\'a été trouvé avec ces informations. Vérifiez vos données ou contactez le secrétariat.');
                 setErrorModalVisible(true);
             }
         } catch (error) {
-            console.error('Erreur lors de la recherche:', error);
+            console.error('Erreur lors de la recherche de paiement:', error);
             setErrorTitle('Erreur de recherche');
             setErrorMessage('Une erreur s\'est produite lors de la recherche. Veuillez réessayer ou contacter le secrétariat.');
             setErrorModalVisible(true);
@@ -147,13 +148,13 @@ export default function PersonalSearchScreen() {
     };
 
     const handleBack = () => {
-        router.back();
+        router.push(ROUTES.PAYMENT_METHOD);
     };
 
     if (loading) {
         return (
             <ScreenLayout>
-                <LoadingIndicator text="Recherche en cours..." />
+                <LoadingIndicator text="Recherche du paiement en cours..." />
             </ScreenLayout>
         );
     }
@@ -172,12 +173,15 @@ export default function PersonalSearchScreen() {
                 </View>
 
                 {/* Titre */}
-                <Heading className="mb-4 text-center">
-                    Recherche par informations
+                <Heading className="mb-2 text-black text-center">
+                    Recherche
+                </Heading>
+                <Heading className="mb-4  text-center">
+                    par informations
                 </Heading>
 
                 <Paragraph className="mb-8 text-center px-4">
-                    Saisissez vos informations personnelles pour retrouver votre rendez-vous
+                    Saisissez vos informations personnelles pour retrouver votre paiement en attente
                 </Paragraph>
 
                 {/* Formulaire */}
@@ -186,7 +190,21 @@ export default function PersonalSearchScreen() {
                     <View>
                         <SubHeading className="mb-3 text-left">Nom de famille</SubHeading>
                         <TextInput
-                            className="w-full h-14 bg-white rounded-xl px-4 text-lg shadow border border-gray-200"
+                            style={{
+                                width: '100%',
+                                height: 56,
+                                backgroundColor: 'white',
+                                borderRadius: 12,
+                                paddingHorizontal: 16,
+                                fontSize: 18,
+                                shadowColor: '#000',
+                                shadowOffset: { width: 0, height: 2 },
+                                shadowOpacity: 0.1,
+                                shadowRadius: 4,
+                                elevation: 3,
+                                borderWidth: 1,
+                                borderColor: '#e5e7eb'
+                            }}
                             placeholder="Votre nom de famille"
                             value={nom}
                             onChangeText={(text) => {
@@ -195,7 +213,7 @@ export default function PersonalSearchScreen() {
                             }}
                             autoCapitalize="characters"
                             onFocus={triggerActivity}
-                            style={{ fontSize: 18 }}
+                            editable={true}
                         />
                     </View>
 
@@ -203,7 +221,21 @@ export default function PersonalSearchScreen() {
                     <View>
                         <SubHeading className="mb-3 text-left">Prénom</SubHeading>
                         <TextInput
-                            className="w-full h-14 bg-white rounded-xl px-4 text-lg shadow border border-gray-200"
+                            style={{
+                                width: '100%',
+                                height: 56,
+                                backgroundColor: 'white',
+                                borderRadius: 12,
+                                paddingHorizontal: 16,
+                                fontSize: 18,
+                                shadowColor: '#000',
+                                shadowOffset: { width: 0, height: 2 },
+                                shadowOpacity: 0.1,
+                                shadowRadius: 4,
+                                elevation: 3,
+                                borderWidth: 1,
+                                borderColor: '#e5e7eb'
+                            }}
                             placeholder="Votre prénom"
                             value={prenom}
                             onChangeText={(text) => {
@@ -212,7 +244,7 @@ export default function PersonalSearchScreen() {
                             }}
                             autoCapitalize="words"
                             onFocus={triggerActivity}
-                            style={{ fontSize: 18 }}
+                            editable={true}
                         />
                     </View>
 
@@ -220,40 +252,50 @@ export default function PersonalSearchScreen() {
                     <View>
                         <SubHeading className="mb-3 text-left">Date de naissance</SubHeading>
                         <TextInput
-                            className="w-full h-14 bg-white rounded-xl px-4 text-lg shadow border border-gray-200"
+                            style={{
+                                width: '100%',
+                                height: 56,
+                                backgroundColor: 'white',
+                                borderRadius: 12,
+                                paddingHorizontal: 16,
+                                fontSize: 18,
+                                shadowColor: '#000',
+                                shadowOffset: { width: 0, height: 2 },
+                                shadowOpacity: 0.1,
+                                shadowRadius: 4,
+                                elevation: 3,
+                                borderWidth: 1,
+                                borderColor: '#e5e7eb'
+                            }}
                             placeholder="JJ/MM/AAAA"
                             value={dateNaissance}
                             onChangeText={handleDateChange}
                             keyboardType="numeric"
                             maxLength={10}
                             onFocus={triggerActivity}
-                            style={{ fontSize: 18 }}
+                            editable={true}
                         />
                         <Text className="text-sm text-gray-500 mt-1 ml-2">
-                            Format : JJ/MM/AAAA (ex: 15/03/1980)
+                            Format: JJ/MM/AAAA (ex: 15/03/1990)
                         </Text>
                     </View>
                 </View>
 
                 {/* Bouton de recherche */}
-                <View className="mt-12">
+                <View className="mt-8">
                     <Button
-                        title="Rechercher mon rendez-vous"
+                        title={isFormValid() ? "Rechercher mon paiement" : "Veuillez remplir tous les champs"}
                         onPress={handleSearch}
-                        variant="primary"
                         disabled={!isFormValid()}
-                        className="w-full h-14 justify-center items-center"
+                        className="w-full justify-center items-center"
                     />
                 </View>
 
-                {/* Aide */}
+                {/* Message d'aide */}
                 <View className="mt-8">
-                    <View className="flex-row items-center justify-center">
-                        <Ionicons name="information-circle-outline" size={20} color="#666" />
-                        <Text className="text-sm text-gray-600 ml-2 text-center">
-                            Les informations doivent correspondre exactement à celles de votre rendez-vous
-                        </Text>
-                    </View>
+                    <Paragraph className="text-center text-gray-500 text-sm">
+                        Informations introuvables ? Contactez le secrétariat pour obtenir de l'aide
+                    </Paragraph>
                 </View>
             </View>
 

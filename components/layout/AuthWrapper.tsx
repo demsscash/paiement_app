@@ -1,3 +1,4 @@
+// components/layout/AuthWrapper.tsx
 import React, { useState, useEffect } from 'react';
 import { View } from 'react-native';
 import { usePathname, useRouter } from 'expo-router';
@@ -36,13 +37,9 @@ export const AuthWrapper: React.FC<AuthWrapperProps> = ({ children }) => {
                 setIsAuthenticated(true);
                 setShowAuthScreen(false);
                 setIsCheckingAuth(false);
-                
-                // REDIRECTION AUTOMATIQUE VERS PAYMENT après authentification
-                if (pathname === '/') {
-                    setTimeout(() => {
-                        router.push(ROUTES.PAYMENT);
-                    }, 500);
-                }
+
+                // PAS DE REDIRECTION ICI - c'est géré dans index.tsx
+                // L'index.tsx s'occupe de la redirection vers PAYMENT_METHOD
             } else {
                 setIsAuthenticated(false);
                 setShowAuthScreen(true);
@@ -59,18 +56,14 @@ export const AuthWrapper: React.FC<AuthWrapperProps> = ({ children }) => {
     const handleAuthSuccess = () => {
         setIsAuthenticated(true);
         setShowAuthScreen(false);
-        // Redirection automatique vers payment après auth réussie
-        setTimeout(() => {
-            router.push(ROUTES.PAYMENT);
-        }, 500);
+        // PAS DE REDIRECTION ICI - c'est géré dans index.tsx après l'authentification
     };
 
+    // PAS DE LOADER ICI - c'est géré dans index.tsx
     if (isCheckingAuth) {
         return (
-            <View style={{ flex: 1, backgroundColor: '#F0F5FF' }}>
-                <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-                    <LoadingIndicator text="Initialisation borne Paiement..." size="large" />
-                </View>
+            <View style={{ flex: 1 }}>
+                {/* Pas de loader ici car index.tsx gère déjà ça */}
             </View>
         );
     }

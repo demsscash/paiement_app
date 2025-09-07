@@ -18,6 +18,8 @@ export type AppRoutes = {
     PAYMENT_CONFIRMATION: '/payment-confirmation',
     TPE: '/tpe',
     PAYMENT_SUCCESS: '/payment-success',
+    PAYMENT_METHOD: '/payment-method',    // NOUVELLE ROUTE AJOUTÉE
+
 };
 
 // Les chemins comme valeurs littérales pour satisfaire le typage d'Expo Router
@@ -39,4 +41,6 @@ export const ROUTES: AppRoutes = {
     PAYMENT_CONFIRMATION: '/payment-confirmation',
     TPE: '/tpe',
     PAYMENT_SUCCESS: '/payment-success',
+    PAYMENT_METHOD: '/payment-method',    // NOUVELLE ROUTE AJOUTÉE
+
 };
